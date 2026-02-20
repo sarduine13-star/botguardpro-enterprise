@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /* ─────────────────────────────────────────────
    DASHBOARD SUBCOMPONENTS
@@ -213,6 +213,15 @@ const d = {
 
 export default function App() {
   const [faqOpen, setFaqOpen] = useState(null);
+  const [leakData, setLeakData] = useState(null);
+
+  useEffect(() => {
+    fetch("https://botguard-agent-production.up.railway.app/agent/check/botguardpro.com")
+      .then(r => r.json())
+      .then(d => { if (d.trigger) setLeakData(d); })
+      .catch(() => {});
+  }, []);
+
   const toggleFaq = (i) => setFaqOpen(faqOpen === i ? null : i);
 
   const faqs = [
@@ -226,6 +235,14 @@ export default function App() {
 
   return (
     <div style={s.wrapper}>
+            {leakData && (
+        <div style={{ position: "fixed", bottom: "24px", right: "24px", background: "#0a0f1a", border: "1px solid #ef4444", borderRadius: "8px", padding: "20px 24px", zIndex: 9999, maxWidth: "320px", boxShadow: "0 0 30px rgba(239,68,68,0.3)" }}>
+          <div style={{ color: "#ef4444", fontWeight: 700, marginBottom: "8px" }}>? Revenue Leak Detected</div>
+          <div style={{ color: "#a0a8b8", fontSize: "14px" }}>Paid sessions with no conversion: <b style={{ color: "#fff" }}>{leakData.paid_sessions}</b></div>
+          <div style={{ color: "#a0a8b8", fontSize: "14px", marginTop: "4px" }}>Estimated waste: <b style={{ color: "#ef4444" }}>${leakData.estimated_wasted_per_day}/day</b></div>
+          <a href="#audit" style={{ display: "block", marginTop: "14px", textAlign: "center", background: "#1f6feb", color: "#fff", padding: "8px 16px", borderRadius: "4px", textDecoration: "none", fontSize: "13px", fontWeight: 600 }}>Fix This Now</a>
+        </div>
+      )}
       {/* HERO */}
       <section style={s.hero}>
         <div style={s.container}>
@@ -505,3 +522,4 @@ const s = {
   footerInner: { maxWidth: "1100px", margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", fontSize: "13px", color: "#5a6478" },
   footerLink: { color: "#5a6478", textDecoration: "none" },
 };
+
