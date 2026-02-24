@@ -1,5 +1,45 @@
 import { useState, useEffect } from "react";
 
+// --- REAL VISITOR TRACKING -------------------------------
+const API = "https://botguard-agent-production.up.railway.app";
+
+function getSessionId() {
+  let sid = sessionStorage.getItem("bgp_sid");
+  if (!sid) { sid = "sess_" + Math.random().toString(36).slice(2, 10); sessionStorage.setItem("bgp_sid", sid); }
+  return sid;
+}
+
+function getUTM() {
+  const p = new URLSearchParams(window.location.search);
+  return p.get("utm_source") || p.get("ref") || null;
+}
+
+function hashStr(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) { h = Math.imul(31, h) + str.charCodeAt(i) | 0; }
+  return Math.abs(h).toString(16);
+}
+
+function fireEvent(conversionFlag) {
+  fetch(API + "/event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      site_id: "botguardpro.com",
+      session_id: getSessionId(),
+      page_url: window.location.href,
+      referrer: document.referrer || null,
+      utm_source: getUTM(),
+      event_type: conversionFlag ? "conversion" : "pageview",
+      conversion_flag: conversionFlag,
+      ip_hash: hashStr(navigator.language + screen.width + screen.height),
+      ua_hash: hashStr(navigator.userAgent)
+    })
+  }).catch(() => {});
+}
+// ---------------------------------------------------------
+
+
 /* ─────────────────────────────────────────────
    DASHBOARD SUBCOMPONENTS
 ───────────────────────────────────────────── */
@@ -222,6 +262,8 @@ export default function App() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => { fireEvent(false); }, []);
+
   const toggleFaq = (i) => setFaqOpen(faqOpen === i ? null : i);
 
   const faqs = [
@@ -352,7 +394,7 @@ export default function App() {
                   <li key={t} style={s.tierItem}><span style={s.chk}>✓</span><span>{t}</span></li>
                 ))}
               </ul>
-              <a href="https://buy.stripe.com/aFa28r050gS42xW2arcfK0e" target="_blank" rel="noopener noreferrer" style={{ ...s.btnPrimary, display: "block", textAlign: "center", marginTop: "30px" }}>Purchase Audit</a>
+              <a onClick={() => fireEvent(true)} href="https://buy.stripe.com/aFa28r050gS42xW2arcfK0e" target="_blank" rel="noopener noreferrer" style={{ ...s.btnPrimary, display: "block", textAlign: "center", marginTop: "30px" }}>Purchase Audit</a>
             </div>
 
             <div id="monitoring" style={{ ...s.tierCard, borderColor: "#1f6feb" }}>
@@ -373,7 +415,7 @@ export default function App() {
                   <li key={t} style={s.tierItem}><span style={s.chk}>✓</span><span>{t}</span></li>
                 ))}
               </ul>
-              <a href="https://buy.stripe.com/6oU7sL6to1Xa7Sg6qHcfK0f" target="_blank" rel="noopener noreferrer" style={{ ...s.btnPrimary, display: "block", textAlign: "center", marginTop: "30px" }}>Engage Monitoring</a>
+              <a onClick={() => fireEvent(true)} href="https://buy.stripe.com/6oU7sL6to1Xa7Sg6qHcfK0f" target="_blank" rel="noopener noreferrer" style={{ ...s.btnPrimary, display: "block", textAlign: "center", marginTop: "30px" }}>Engage Monitoring</a>
             </div>
           </div>
         </div>
@@ -522,4 +564,7 @@ const s = {
   footerInner: { maxWidth: "1100px", margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", fontSize: "13px", color: "#5a6478" },
   footerLink: { color: "#5a6478", textDecoration: "none" },
 };
+
+
+
 

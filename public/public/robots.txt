@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://botguardpro.com/sitemap.xml
