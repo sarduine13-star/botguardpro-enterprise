@@ -1,570 +1,638 @@
 import { useState, useEffect } from "react";
 
-// --- REAL VISITOR TRACKING -------------------------------
-const API = "https://botguard-agent-production.up.railway.app";
-
-function getSessionId() {
-  let sid = sessionStorage.getItem("bgp_sid");
-  if (!sid) { sid = "sess_" + Math.random().toString(36).slice(2, 10); sessionStorage.setItem("bgp_sid", sid); }
-  return sid;
-}
-
-function getUTM() {
-  const p = new URLSearchParams(window.location.search);
-  return p.get("utm_source") || p.get("ref") || null;
-}
-
-function hashStr(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) { h = Math.imul(31, h) + str.charCodeAt(i) | 0; }
-  return Math.abs(h).toString(16);
-}
-
-function fireEvent(conversionFlag) {
-  fetch(API + "/event", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      site_id: "botguardpro.com",
-      session_id: getSessionId(),
-      page_url: window.location.href,
-      referrer: document.referrer || null,
-      utm_source: getUTM(),
-      event_type: conversionFlag ? "conversion" : "pageview",
-      conversion_flag: conversionFlag,
-      ip_hash: hashStr(navigator.language + screen.width + screen.height),
-      ua_hash: hashStr(navigator.userAgent)
-    })
-  }).catch(() => {});
-}
-// ---------------------------------------------------------
-
-
-/* ─────────────────────────────────────────────
-   DASHBOARD SUBCOMPONENTS
-───────────────────────────────────────────── */
-
-function MiniBar({ pct, color }) {
-  return (
-    <div style={{ width: "100%", height: "6px", background: "#0d1525", borderRadius: "3px" }}>
-      <div style={{ width: `${pct}%`, height: "6px", background: color, borderRadius: "3px" }} />
-    </div>
-  );
-}
-
-function SparkLine({ data, color, width = 120, height = 32 }) {
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-  const points = data
-    .map((v, i) => {
-      const x = (i / (data.length - 1)) * width;
-      const y = height - ((v - min) / range) * (height - 4) - 2;
-      return `${x},${y}`;
-    })
-    .join(" ");
-  return (
-    <svg width={width} height={height} style={{ display: "block" }}>
-      <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   MOCK DASHBOARD
-───────────────────────────────────────────── */
-
-function Dashboard() {
-  const sessions = [
-    { id: "sess_8f2a1d", ip: "198.51.●●.23", score: 12, status: "Blocked", signals: "Headless UA, No mouse events, 2ms click delta", geo: "Ashburn, VA" },
-    { id: "sess_3c9e7b", ip: "203.0.●●.91", score: 34, status: "Flagged", signals: "Datacenter IP, Linear scroll, Cookie reject", geo: "Frankfurt, DE" },
-    { id: "sess_a14f82", ip: "192.0.●●.44", score: 87, status: "Passed", signals: "—", geo: "Brooklyn, NY" },
-    { id: "sess_6d0b3e", ip: "198.51.●●.67", score: 8, status: "Blocked", signals: "Phantom JS, Zero viewport resize, Replay detected", geo: "Singapore, SG" },
-    { id: "sess_f72c19", ip: "203.0.●●.15", score: 91, status: "Passed", signals: "—", geo: "Austin, TX" },
-    { id: "sess_2e8a4c", ip: "198.51.●●.88", score: 21, status: "Blocked", signals: "Headless Chrome, Uniform timing, No scroll jitter", geo: "Mumbai, IN" },
-  ];
-
-  const trafficTrend = [42, 38, 45, 51, 47, 53, 48, 55, 62, 58, 64, 61, 68, 72, 65];
-  const botTrend = [18, 22, 19, 25, 21, 28, 24, 31, 27, 33, 29, 35, 32, 38, 34];
-
-  const statusColor = (st) => st === "Blocked" ? "#ef4444" : st === "Flagged" ? "#f59e0b" : "#22c55e";
-  const scoreColor = (sc) => sc <= 30 ? "#ef4444" : sc <= 60 ? "#f59e0b" : "#22c55e";
-
-  return (
-    <div style={d.wrap}>
-      <div style={d.topBar}>
-        <div style={d.topLeft}>
-          <span style={{ color: "#1f6feb", fontSize: "16px" }}>⬡</span>
-          <span style={{ fontWeight: 700, color: "#e8ecf2", fontSize: "14px" }}>BotGuard Pro</span>
-          <span style={d.envBadge}>Production</span>
-        </div>
-        <div style={d.topRight}>
-          <span style={d.liveDot} />
-          <span style={{ fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>Live Monitoring</span>
-          <span style={{ fontSize: "11px", color: "#5a6478" }}>Feb 17, 2026 · 14:32 UTC</span>
-        </div>
-      </div>
-
-      <div style={d.kpiRow}>
-        <div style={d.kpi}>
-          <div style={d.kpiLabel}>Total Sessions (24h)</div>
-          <div style={d.kpiVal}>14,832</div>
-          <SparkLine data={trafficTrend} color="#5b9cf6" width={100} height={28} />
-        </div>
-        <div style={d.kpi}>
-          <div style={d.kpiLabel}>Bot Sessions Blocked</div>
-          <div style={{ ...d.kpiVal, color: "#ef4444" }}>3,241</div>
-          <SparkLine data={botTrend} color="#ef4444" width={100} height={28} />
-        </div>
-        <div style={d.kpi}>
-          <div style={d.kpiLabel}>Human Verification Rate</div>
-          <div style={{ ...d.kpiVal, color: "#22c55e" }}>78.2%</div>
-          <MiniBar pct={78.2} color="#22c55e" />
-        </div>
-        <div style={d.kpi}>
-          <div style={d.kpiLabel}>Est. Revenue Protected</div>
-          <div style={{ ...d.kpiVal, color: "#5b9cf6" }}>$42,180</div>
-          <MiniBar pct={65} color="#5b9cf6" />
-        </div>
-      </div>
-
-      <div style={d.main}>
-        <div style={d.tableArea}>
-          <div style={d.secHead}>
-            <span style={d.secTitle}>Detection Log</span>
-            <span style={{ fontSize: "11px", color: "#4a5568" }}>Last 6 sessions</span>
-          </div>
-          <div style={{ overflowX: "auto" }}>
-            <table style={d.table}>
-              <thead>
-                <tr>
-                  {["Session", "Origin IP", "Geo", "Score", "Status", "Signals"].map((h) => (
-                    <th key={h} style={d.th}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((se, i) => (
-                  <tr key={i} style={{ background: i % 2 === 0 ? "#0a0f1a" : "#0c1220" }}>
-                    <td style={d.td}><code style={d.mono}>{se.id}</code></td>
-                    <td style={d.td}><code style={d.mono}>{se.ip}</code></td>
-                    <td style={d.td}>{se.geo}</td>
-                    <td style={d.td}>
-                      <span style={{ fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", fontSize: "12px", color: scoreColor(se.score) }}>{se.score}</span>
-                    </td>
-                    <td style={d.td}>
-                      <span style={{
-                        display: "inline-block", padding: "2px 8px", borderRadius: "3px",
-                        fontSize: "10px", fontWeight: 700, letterSpacing: "0.3px", textTransform: "uppercase",
-                        background: `${statusColor(se.status)}18`, color: statusColor(se.status),
-                        border: `1px solid ${statusColor(se.status)}33`
-                      }}>{se.status}</span>
-                    </td>
-                    <td style={{ ...d.td, fontSize: "11px", color: "#5a6478", maxWidth: "220px" }}>{se.signals}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div style={d.sidebar}>
-          <div style={d.sideCard}>
-            <div style={d.secTitle}>Traffic Split (24h)</div>
-            <div style={{ display: "flex", height: "8px", borderRadius: "4px", overflow: "hidden", margin: "12px 0 10px", gap: "2px" }}>
-              <div style={{ width: "78%", height: "8px", background: "#22c55e", borderRadius: "4px 0 0 4px" }} />
-              <div style={{ width: "14%", height: "8px", background: "#ef4444" }} />
-              <div style={{ width: "8%", height: "8px", background: "#f59e0b", borderRadius: "0 4px 4px 0" }} />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "6px" }}>
-              {[["#22c55e", "Human 78%"], ["#ef4444", "Bot 14%"], ["#f59e0b", "Suspicious 8%"]].map(([c, t]) => (
-                <div key={t} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "#7a8599" }}>
-                  <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: c, flexShrink: 0 }} />
-                  {t}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={d.sideCard}>
-            <div style={d.secTitle}>Revenue Exposure</div>
-            {[
-              { ch: "Google Ads", risk: "$18,400", pct: 82 },
-              { ch: "Meta Ads", risk: "$12,100", pct: 54 },
-              { ch: "Organic", risk: "$4,200", pct: 19 },
-              { ch: "Direct", risk: "$2,880", pct: 13 },
-            ].map((c, i) => (
-              <div key={i} style={{ marginTop: "12px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}>
-                  <span style={{ fontSize: "12px", color: "#a0a8b8" }}>{c.ch}</span>
-                  <span style={{ fontSize: "12px", fontWeight: 700, color: "#e8ecf2" }}>{c.risk}</span>
-                </div>
-                <MiniBar pct={c.pct} color={c.pct > 50 ? "#ef4444" : c.pct > 30 ? "#f59e0b" : "#5b9cf6"} />
-              </div>
-            ))}
-          </div>
-
-          <div style={d.sideCard}>
-            <div style={d.secTitle}>Top Triggered Rules</div>
-            {[
-              { rule: "Headless Browser UA", hits: 1847 },
-              { rule: "Datacenter IP Range", hits: 982 },
-              { rule: "Zero Mouse Movement", hits: 744 },
-              { rule: "Click Timing < 5ms", hits: 631 },
-            ].map((r, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #0f1626" }}>
-                <span style={{ fontSize: "12px", color: "#8892a4" }}>{r.rule}</span>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "#e8ecf2", fontFamily: "'JetBrains Mono', monospace" }}>{r.hits.toLocaleString()}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const d = {
-  wrap: { background: "#080c14", border: "1px solid #162038", borderRadius: "12px", overflow: "hidden", fontFamily: "'Inter', system-ui, sans-serif", fontSize: "13px", color: "#a0a8b8" },
-  topBar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", borderBottom: "1px solid #162038", background: "#0a0f1a", flexWrap: "wrap", gap: "10px" },
-  topLeft: { display: "flex", alignItems: "center", gap: "10px" },
-  topRight: { display: "flex", alignItems: "center", gap: "10px" },
-  envBadge: { fontSize: "10px", fontWeight: 600, letterSpacing: "0.5px", textTransform: "uppercase", padding: "2px 8px", background: "#22c55e18", color: "#22c55e", border: "1px solid #22c55e33", borderRadius: "3px" },
-  liveDot: { width: "7px", height: "7px", borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e88" },
-  kpiRow: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1px", background: "#162038" },
-  kpi: { background: "#0a0f1a", padding: "18px 20px", display: "flex", flexDirection: "column", gap: "6px" },
-  kpiLabel: { fontSize: "11px", color: "#5a6478", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600 },
-  kpiVal: { fontSize: "24px", fontWeight: 700, color: "#e8ecf2" },
-  main: { display: "grid", gridTemplateColumns: "1fr 300px", gap: "1px", background: "#162038" },
-  tableArea: { background: "#0a0f1a", padding: "20px", overflow: "hidden" },
-  secHead: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" },
-  secTitle: { fontWeight: 700, color: "#c8cdd6", fontSize: "13px" },
-  table: { width: "100%", borderCollapse: "collapse", fontSize: "12px" },
-  th: { textAlign: "left", padding: "8px 10px", fontSize: "10px", fontWeight: 600, color: "#4a5568", textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #162038" },
-  td: { padding: "9px 10px", borderBottom: "1px solid #0f1626" },
-  mono: { fontFamily: "'JetBrains Mono', 'SF Mono', monospace", fontSize: "11px", color: "#7a8599" },
-  sidebar: { background: "#0a0f1a", display: "flex", flexDirection: "column" },
-  sideCard: { padding: "18px 20px", background: "#0a0f1a", borderBottom: "1px solid #162038" },
+const STRIPE = {
+  quickScan: "https://buy.stripe.com/dRmaEX5pk31eb4sg1hcfK0i",
+  revenueAudit: "https://buy.stripe.com/dRm9ATg3Y9pC6Oc5mDcfK0h",
+  revenueShield: "https://buy.stripe.com/dRm14naJEgS42xWcP5cfK0g",
 };
 
-/* ─────────────────────────────────────────────
-   LANDING PAGE
-───────────────────────────────────────────── */
+const NAV_LINKS = ["Problem", "How It Works", "Pricing", "FAQ"];
 
-export default function App() {
-  const [faqOpen, setFaqOpen] = useState(null);
-  const [leakData, setLeakData] = useState(null);
-
+function useScrollY() {
+  const [y, setY] = useState(0);
   useEffect(() => {
-    fetch("https://botguard-agent-production.up.railway.app/agent/check/botguardpro.com")
-      .then(r => r.json())
-      .then(d => { if (d.trigger) setLeakData(d); })
-      .catch(() => {});
+    const handler = () => setY(window.scrollY);
+    window.addEventListener("scroll", handler, { passive: true });
+    return () => window.removeEventListener("scroll", handler);
   }, []);
+  return y;
+}
 
-  useEffect(() => { fireEvent(false); }, []);
-
-  const toggleFaq = (i) => setFaqOpen(faqOpen === i ? null : i);
-
-  const faqs = [
-    { q: "How does BotGuard Pro detect automated traffic?", a: "BotGuard Pro uses behavioral signal analysis — evaluating session timing, interaction patterns, header fingerprints, and navigation sequences against known automation signatures. Detection is deterministic, not probabilistic. Every flagged session includes a confidence score and the signals that triggered it." },
-    { q: "What data does BotGuard Pro access?", a: "We analyze HTTP request metadata, session behavior patterns, and traffic flow characteristics. We do not access personally identifiable information, stored credentials, or application-layer user data. All analysis operates on traffic signals, not content." },
-    { q: "How long does the Revenue Loss Audit take?", a: "Most audits are delivered within 5–7 business days after receiving access to your traffic data. The deliverable is a structured PDF report with a 30-minute walkthrough call to review findings and discuss enforcement recommendations." },
-    { q: "What's included in the monthly monitoring service?", a: "Continuous real-time session scoring, a live detection dashboard, weekly summary reports, threshold-based alerting via email or webhook, and a monthly review call. You also get priority access for rule adjustments and custom detection policies." },
-    { q: "Can I try it before committing to monthly monitoring?", a: "Yes — the Revenue Loss Audit is designed as a low-commitment entry point. It gives you a clear picture of your exposure before deciding whether ongoing monitoring is justified. Most monitoring clients start with the audit." },
-    { q: "What platforms and stacks does BotGuard Pro integrate with?", a: "BotGuard Pro operates at the traffic layer via lightweight middleware or reverse proxy integration. It works with any HTTP-based stack — Node, Python, Go, PHP, .NET — and deploys alongside existing infrastructure without requiring application code changes." },
-  ];
-
+function Nav() {
+  const scrollY = useScrollY();
+  const [open, setOpen] = useState(false);
   return (
-    <div style={s.wrapper}>
-            {leakData && (
-        <div style={{ position: "fixed", bottom: "24px", right: "24px", background: "#0a0f1a", border: "1px solid #ef4444", borderRadius: "8px", padding: "20px 24px", zIndex: 9999, maxWidth: "320px", boxShadow: "0 0 30px rgba(239,68,68,0.3)" }}>
-          <div style={{ color: "#ef4444", fontWeight: 700, marginBottom: "8px" }}>? Revenue Leak Detected</div>
-          <div style={{ color: "#a0a8b8", fontSize: "14px" }}>Paid sessions with no conversion: <b style={{ color: "#fff" }}>{leakData.paid_sessions}</b></div>
-          <div style={{ color: "#a0a8b8", fontSize: "14px", marginTop: "4px" }}>Estimated waste: <b style={{ color: "#ef4444" }}>${leakData.estimated_wasted_per_day}/day</b></div>
-          <a href="#audit" style={{ display: "block", marginTop: "14px", textAlign: "center", background: "#1f6feb", color: "#fff", padding: "8px 16px", borderRadius: "4px", textDecoration: "none", fontSize: "13px", fontWeight: 600 }}>Fix This Now</a>
+    <nav
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        padding: "0 2rem",
+        height: "64px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        background: scrollY > 40 ? "rgba(5,7,10,0.95)" : "transparent",
+        backdropFilter: scrollY > 40 ? "blur(12px)" : "none",
+        borderBottom: scrollY > 40 ? "1px solid rgba(255,255,255,0.06)" : "none",
+        transition: "all 0.3s ease",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: 6,
+          background: "linear-gradient(135deg, #00ff88, #00ccff)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 14, fontWeight: 900, color: "#000"
+        }}>B</div>
+        <span style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, color: "#fff", fontSize: 15, letterSpacing: "-0.3px" }}>
+          BotGuard<span style={{ color: "#00ff88" }}>Pro</span>
+        </span>
+      </div>
+
+      <div style={{ display: "flex", gap: "2rem", alignItems: "center" }} className="desktop-nav">
+        {NAV_LINKS.map(l => (
+          <a key={l} href={`#${l.toLowerCase().replace(/ /g, "-")}`}
+            style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, textDecoration: "none", fontFamily: "'Space Mono', monospace", letterSpacing: "0.5px", transition: "color 0.2s" }}
+            onMouseEnter={e => e.target.style.color = "#00ff88"}
+            onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.6)"}
+          >{l}</a>
+        ))}
+        <a href={STRIPE.quickScan} target="_blank" rel="noopener noreferrer"
+          style={{
+            background: "#00ff88", color: "#000", padding: "8px 18px",
+            borderRadius: 6, fontSize: 13, fontWeight: 700, textDecoration: "none",
+            fontFamily: "'Space Mono', monospace", letterSpacing: "0.3px",
+            transition: "all 0.2s",
+          }}
+          onMouseEnter={e => { e.target.style.background = "#00ffaa"; e.target.style.transform = "translateY(-1px)"; }}
+          onMouseLeave={e => { e.target.style.background = "#00ff88"; e.target.style.transform = "translateY(0)"; }}
+        >Scan My Site →</a>
+      </div>
+    </nav>
+  );
+}
+
+function Hero() {
+  return (
+    <section style={{
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "120px 2rem 80px",
+      textAlign: "center",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      {/* Grid background */}
+      <div style={{
+        position: "absolute", inset: 0,
+        backgroundImage: "linear-gradient(rgba(0,255,136,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,136,0.04) 1px, transparent 1px)",
+        backgroundSize: "60px 60px",
+        zIndex: 0,
+      }} />
+      {/* Glow */}
+      <div style={{
+        position: "absolute", top: "30%", left: "50%", transform: "translate(-50%,-50%)",
+        width: 600, height: 400,
+        background: "radial-gradient(ellipse, rgba(0,255,136,0.08) 0%, transparent 70%)",
+        zIndex: 0,
+      }} />
+
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 800 }}>
+        <div style={{
+          display: "inline-block",
+          background: "rgba(0,255,136,0.1)",
+          border: "1px solid rgba(0,255,136,0.3)",
+          borderRadius: 100,
+          padding: "6px 16px",
+          marginBottom: "2rem",
+          fontFamily: "'Space Mono', monospace",
+          fontSize: 12,
+          color: "#00ff88",
+          letterSpacing: "1px",
+        }}>
+          ◆ REVENUE INTEGRITY PLATFORM
         </div>
-      )}
-      {/* HERO */}
-      <section style={s.hero}>
-        <div style={s.container}>
-          <a href="https://www.botguardpro.com" target="_blank" rel="noopener noreferrer" style={s.heroLogo}>
-            <span style={{ color: "#1f6feb", fontSize: "20px" }}>⬡</span>
-            <span style={{ fontWeight: 700, color: "#f0f4f8", fontSize: "18px" }}>BotGuard Pro</span>
+
+        <h1 style={{
+          fontFamily: "'Syne', sans-serif",
+          fontSize: "clamp(2.8rem, 7vw, 5.5rem)",
+          fontWeight: 900,
+          color: "#fff",
+          lineHeight: 1.0,
+          marginBottom: "1.5rem",
+          letterSpacing: "-2px",
+        }}>
+          Bots Are Eating<br />
+          <span style={{
+            background: "linear-gradient(135deg, #00ff88, #00ccff)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}>Your Ad Budget.</span>
+        </h1>
+
+        <p style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: "clamp(1rem, 2vw, 1.25rem)",
+          color: "rgba(255,255,255,0.55)",
+          maxWidth: 560,
+          margin: "0 auto 3rem",
+          lineHeight: 1.7,
+        }}>
+          Fake clicks. Ghost sessions. Inflated costs. BotGuard Pro detects exactly who's hitting your site, what it's costing you, and how to stop them.
+        </p>
+
+        <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
+          <a href={STRIPE.quickScan} target="_blank" rel="noopener noreferrer"
+            style={{
+              background: "#00ff88",
+              color: "#000",
+              padding: "16px 32px",
+              borderRadius: 8,
+              fontSize: 15,
+              fontWeight: 800,
+              textDecoration: "none",
+              fontFamily: "'Space Mono', monospace",
+              letterSpacing: "0.3px",
+              transition: "all 0.2s",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "#00ffaa"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 30px rgba(0,255,136,0.3)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "#00ff88"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+          >
+            Run a $99 Quick Scan →
           </a>
-          <div style={s.badge}>Detection-First Security</div>
-          <h1 style={s.heroTitle}>Your Revenue Has a<br /><span style={s.accent}>Bot Problem</span></h1>
-          <p style={s.heroSub}>
-            Automated traffic silently inflates your metrics, drains ad spend,
-            and corrupts the data you make decisions on. BotGuard Pro enforces
-            session authenticity before it hits your bottom line.
-          </p>
-          <div style={s.btnRow}>
-            <a href="#audit" style={s.btnPrimary}>Start With a Revenue Audit — $1,500</a>
-            <a href="#monitoring" style={s.btnSecondary}>Ongoing Monitoring</a>
-          </div>
+          <a href="#pricing"
+            style={{
+              background: "transparent",
+              color: "rgba(255,255,255,0.7)",
+              padding: "16px 32px",
+              borderRadius: 8,
+              fontSize: 15,
+              fontWeight: 600,
+              textDecoration: "none",
+              fontFamily: "'DM Sans', sans-serif",
+              border: "1px solid rgba(255,255,255,0.15)",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)"; e.currentTarget.style.color = "#fff"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
+          >
+            View All Plans
+          </a>
         </div>
-      </section>
 
-      {/* PROBLEM */}
-      <section style={s.sec}>
-        <div style={s.narrow}>
-          <h2 style={s.secTitle}>The Cost of Ignoring Bot Traffic</h2>
-          <p style={s.body}>
-            Industry research estimates that nearly 50% of all internet traffic
-            is automated. For businesses running paid acquisition, that means
-            a significant share of every ad dollar may be reaching bots, not buyers.
-          </p>
-          <div style={s.statGrid}>
-            {[["~50%", "of web traffic is automated"], ["$84B+", "lost to ad fraud globally per year"], ["1 in 5", "paid clicks may never reach a human"]].map(([n, l]) => (
-              <div key={n} style={s.statCard}>
-                <div style={s.statNum}>{n}</div>
-                <div style={s.statLabel}>{l}</div>
-              </div>
-            ))}
-          </div>
-          <p style={{ ...s.body, marginTop: "40px" }}>
-            Bot traffic doesn't just waste spend — it poisons your analytics,
-            inflates conversion rates, skews A/B tests, and erodes confidence
-            in every metric your team relies on.
-          </p>
-        </div>
-      </section>
-
-      {/* CAPABILITIES */}
-      <section style={s.secAlt}>
-        <div style={s.container}>
-          <h2 style={s.secTitle}>How BotGuard Pro Works</h2>
-          <div style={s.grid}>
-            {[
-              { icon: "◉", title: "Behavioral Traffic Scoring", desc: "Every session is scored against behavioral baselines — timing, interaction cadence, navigation depth — before it can affect conversion data." },
-              { icon: "⚙", title: "Deterministic Rule Engine", desc: "No black-box ML guessing. Transparent, auditable rules enforce policy at the traffic layer with full signal traceability." },
-              { icon: "△", title: "Revenue Exposure Mapping", desc: "Identifies which funnels, campaigns, and entry points carry the highest automation risk so you can prioritize enforcement." },
-              { icon: "⊘", title: "Automation Pattern Detection", desc: "Flags scraping, credential stuffing, click fraud, and synthetic sessions using layered signal correlation." },
-            ].map((c, i) => (
-              <div key={i} style={s.card}>
-                <div style={s.cardIcon}>{c.icon}</div>
-                <h3 style={s.cardTitle}>{c.title}</h3>
-                <p style={s.cardDesc}>{c.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* DASHBOARD */}
-      <section style={s.sec}>
-        <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 24px" }}>
-          <h2 style={s.secTitle}>Inside the Detection Engine</h2>
-          <p style={{ ...s.body, marginBottom: "40px" }}>
-            Real-time session scoring, revenue exposure mapping, and automated
-            enforcement — unified in a single operational view.
-          </p>
-          <Dashboard />
-          <p style={{ fontSize: "12px", color: "#4a5568", marginTop: "16px", textAlign: "center" }}>
-            Dashboard shown with simulated data for demonstration purposes.
-          </p>
-        </div>
-      </section>
-
-      {/* PRICING */}
-      <section id="audit" style={s.secAlt}>
-        <div style={s.container}>
-          <h2 style={s.secTitle}>Choose Your Engagement</h2>
-          <p style={{ ...s.body, marginBottom: "50px" }}>
-            Most clients start with the audit to understand their exposure,
-            then move to monitoring for continuous protection.
-          </p>
-          <div style={s.tierRow}>
-            <div style={s.tierCard}>
-              <div style={s.tierBadge}>Start Here</div>
-              <h3 style={s.tierTitle}>Revenue Loss Audit</h3>
-              <div style={s.tierPrice}>$1,500</div>
-              <div style={s.tierFreq}>one-time engagement</div>
-              <div style={s.divider} />
-              <h4 style={s.tierSub}>What You Receive</h4>
-              <ul style={s.tierList}>
-                {["Traffic authenticity analysis across your primary funnels", "Revenue exposure breakdown by channel and campaign", "Conversion distortion assessment with estimated dollar impact", "Prioritized enforcement recommendations"].map((t) => (
-                  <li key={t} style={s.tierItem}><span style={s.chk}>✓</span><span>{t}</span></li>
-                ))}
-              </ul>
-              <h4 style={s.tierSub}>Deliverables</h4>
-              <ul style={s.tierList}>
-                {["Structured PDF report (15–25 pages)", "30-minute walkthrough call to review findings", "Delivered within 5–7 business days"].map((t) => (
-                  <li key={t} style={s.tierItem}><span style={s.chk}>✓</span><span>{t}</span></li>
-                ))}
-              </ul>
-              <a onClick={() => fireEvent(true)} href="https://buy.stripe.com/aFa28r050gS42xW2arcfK0e" target="_blank" rel="noopener noreferrer" style={{ ...s.btnPrimary, display: "block", textAlign: "center", marginTop: "30px" }}>Purchase Audit</a>
-            </div>
-
-            <div id="monitoring" style={{ ...s.tierCard, borderColor: "#1f6feb" }}>
-              <div style={{ ...s.tierBadge, background: "#1f6feb", color: "#fff" }}>Full Protection</div>
-              <h3 style={s.tierTitle}>Detection-First Monitoring</h3>
-              <div style={s.tierPrice}>$5,000</div>
-              <div style={s.tierFreq}>per month</div>
-              <div style={s.divider} />
-              <h4 style={s.tierSub}>What You Receive</h4>
-              <ul style={s.tierList}>
-                {["Continuous real-time session scoring across all endpoints", "Live detection dashboard with drill-down analytics", "Threshold-based alerting via email or webhook", "Custom detection rules and policy configuration"].map((t) => (
-                  <li key={t} style={s.tierItem}><span style={s.chk}>✓</span><span>{t}</span></li>
-                ))}
-              </ul>
-              <h4 style={s.tierSub}>Includes</h4>
-              <ul style={s.tierList}>
-                {["Weekly traffic summary reports", "Monthly review call with enforcement analysis", "Priority support and rule adjustments"].map((t) => (
-                  <li key={t} style={s.tierItem}><span style={s.chk}>✓</span><span>{t}</span></li>
-                ))}
-              </ul>
-              <a onClick={() => fireEvent(true)} href="https://buy.stripe.com/6oU7sL6to1Xa7Sg6qHcfK0f" target="_blank" rel="noopener noreferrer" style={{ ...s.btnPrimary, display: "block", textAlign: "center", marginTop: "30px" }}>Engage Monitoring</a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CREDIBILITY */}
-      <section style={s.sec}>
-        <div style={s.narrow}>
-          <h2 style={s.secTitle}>Built by Infrastructure Engineers</h2>
-          <p style={s.body}>
-            BotGuard Pro is built by Redwine Innovations — with deep
-            operational experience across security systems, ML infrastructure,
-            and revenue-critical environments. The detection engine is informed
-            by real-world automation patterns, not academic models.
-          </p>
-          <div style={s.credRow}>
-            {["Patent-pending detection architecture", "Deterministic, auditable enforcement — no black boxes", "Deploys alongside existing infrastructure in hours, not weeks"].map((t) => (
-              <div key={t} style={s.credItem}>
-                <div style={{ color: "#1f6feb", fontSize: "14px" }}>⬡</div>
-                <div>{t}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section style={s.secAlt}>
-        <div style={s.narrow}>
-          <h2 style={s.secTitle}>Frequently Asked Questions</h2>
-          {faqs.map((faq, i) => (
-            <div key={i} style={s.faqItem}>
-              <button onClick={() => toggleFaq(i)} style={s.faqQ}>
-                <span>{faq.q}</span>
-                <span style={{ ...s.faqToggle, transform: faqOpen === i ? "rotate(45deg)" : "rotate(0deg)" }}>+</span>
-              </button>
-              {faqOpen === i && <div style={s.faqA}>{faq.a}</div>}
+        <div style={{ marginTop: "3rem", display: "flex", gap: "2rem", justifyContent: "center", flexWrap: "wrap" }}>
+          {[["$0", "Average daily waste from bot traffic"], ["80%", "Of bot clicks bypass standard blockers"], ["3 min", "Time to get your scan report"]].map(([val, label]) => (
+            <div key={val} style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontSize: "2rem", fontWeight: 900, color: "#00ff88" }}>{val}</div>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "rgba(255,255,255,0.4)", maxWidth: 140 }}>{label}</div>
             </div>
           ))}
         </div>
-      </section>
-
-      {/* CONTACT */}
-      <section style={s.sec}>
-        <div style={s.narrow}>
-          <h2 style={s.secTitle}>Not Ready to Buy?</h2>
-          <p style={s.body}>
-            If you have questions about scope, integration, or whether BotGuard Pro
-            is the right fit for your environment, reach out directly. No sales pitch —
-            just a technical conversation.
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "14px", marginTop: "30px" }}>
-            <a href="mailto:info@botguardpro.com" style={s.btnSecondary}>info@botguardpro.com</a>
-            <a href="https://www.botguardpro.com" target="_blank" rel="noopener noreferrer" style={s.domainLink}>www.botguardpro.com</a>
-          </div>
-        </div>
-      </section>
-
-      {/* DISCLAIMER */}
-      <section style={{ padding: "40px 24px 0", textAlign: "center" }}>
-        <div style={s.narrow}>
-          <p style={{ fontSize: "12px", color: "#4a5568", lineHeight: 1.7, maxWidth: "640px", margin: "0 auto" }}>
-            BotGuard Pro is a detection and analysis tool. Results vary based on traffic
-            volume, integration configuration, and environment characteristics.
-            Detection outputs are informational and do not constitute guarantees
-            against revenue loss, fraud, or data exposure. The Revenue Loss Audit
-            provides technical analysis and is not intended as legal or financial advice.
-          </p>
-        </div>
-      </section>
-
-      {/* FOOTER */}
-      <footer style={s.footer}>
-        <div style={s.footerInner}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-            <span>© {new Date().getFullYear()} BotGuard Pro · Redwine Innovations</span>
-            <span style={{ color: "#2a3448" }}>·</span>
-            <a href="https://www.botguardpro.com" target="_blank" rel="noopener noreferrer" style={s.footerLink}>www.botguardpro.com</a>
-          </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-  <a href="/terms.html" style={s.footerLink}>Terms of Service</a>
-  <span style={{ color: "#2a3448" }}>·</span>
-  <a href="/privacy.html" style={s.footerLink}>Privacy Policy</a>
-</div>
-
-        </div>
-      </footer>
-    </div>
+      </div>
+    </section>
   );
 }
 
-const s = {
-  wrapper: { fontFamily: "'Inter', system-ui, -apple-system, sans-serif", background: "#080c14", color: "#d8dee9", lineHeight: 1.7, overflowX: "hidden" },
-  container: { maxWidth: "1100px", margin: "0 auto", padding: "0 24px" },
-  narrow: { maxWidth: "760px", margin: "0 auto", padding: "0 24px" },
+function Problem() {
+  const items = [
+    { icon: "💸", title: "Ad Spend Drained", desc: "Bots click your paid ads, spend your budget, and never convert. You pay for traffic that was never human." },
+    { icon: "🖥️", title: "Server Costs Inflated", desc: "Fake traffic drives up your hosting bills, CDN costs, and compute usage every single month." },
+    { icon: "🪑", title: "SaaS Seats Consumed", desc: "Fake signups eat your trial limits and plan quotas, blocking real customers and distorting your metrics." },
+    { icon: "🗑️", title: "CRM Polluted", desc: "Fake leads flood your sales pipeline, wasting your team's time chasing ghosts that will never close." },
+    { icon: "📊", title: "Analytics Poisoned", desc: "Bad data leads to bad decisions. Bots tank your conversion rate and make a working funnel look broken." },
+    { icon: "🔁", title: "It Never Stops", desc: "Bots evolve, tactics change, and new sources emerge. Without monitoring, the bleeding continues indefinitely." },
+  ];
 
-  hero: { padding: "120px 24px 100px", textAlign: "center", background: "radial-gradient(ellipse at 50% 0%, #0f1a30 0%, #080c14 70%)" },
-  heroLogo: { display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none", marginBottom: "24px" },
-  badge: { display: "inline-block", padding: "6px 16px", fontSize: "12px", fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", color: "#5b9cf6", border: "1px solid #1a3a6a", borderRadius: "20px", marginBottom: "28px" },
-  heroTitle: { fontSize: "clamp(36px, 5vw, 56px)", fontWeight: 700, lineHeight: 1.15, marginBottom: "24px", color: "#f0f4f8" },
-  accent: { color: "#5b9cf6" },
-  heroSub: { fontSize: "18px", maxWidth: "640px", margin: "0 auto 44px", color: "#8892a4" },
-  btnRow: { display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" },
-  btnPrimary: { padding: "14px 28px", background: "#1f6feb", color: "#fff", textDecoration: "none", fontWeight: 600, borderRadius: "6px", fontSize: "15px", border: "none", cursor: "pointer" },
-  btnSecondary: { padding: "14px 28px", border: "1px solid #2a4a7a", color: "#5b9cf6", textDecoration: "none", fontWeight: 600, borderRadius: "6px", fontSize: "15px", background: "transparent", cursor: "pointer" },
+  return (
+    <section id="problem" style={{ padding: "100px 2rem", maxWidth: 1100, margin: "0 auto" }}>
+      <div style={{ textAlign: "center", marginBottom: "4rem" }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#00ff88", letterSpacing: "2px", marginBottom: "1rem" }}>THE PROBLEM</div>
+        <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 900, color: "#fff", letterSpacing: "-1px", margin: 0 }}>
+          Bots Cost You More<br />Than You Think
+        </h2>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.5rem" }}>
+        {items.map(({ icon, title, desc }) => (
+          <div key={title} style={{
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 12,
+            padding: "1.75rem",
+            transition: "all 0.2s",
+            cursor: "default",
+          }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,255,136,0.04)"; e.currentTarget.style.borderColor = "rgba(0,255,136,0.2)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}
+          >
+            <div style={{ fontSize: 28, marginBottom: "0.75rem" }}>{icon}</div>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontSize: "1.1rem", fontWeight: 700, color: "#fff", marginBottom: "0.5rem" }}>{title}</div>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.7 }}>{desc}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-  sec: { padding: "100px 24px", textAlign: "center" },
-  secAlt: { padding: "100px 24px", background: "#0c1220", textAlign: "center" },
-  secTitle: { fontSize: "clamp(26px, 3vw, 34px)", fontWeight: 700, marginBottom: "24px", color: "#f0f4f8" },
-  body: { fontSize: "17px", color: "#8892a4", lineHeight: 1.8, textAlign: "center" },
+function HowItWorks() {
+  const steps = [
+    { num: "01", title: "You Purchase a Plan", desc: "Checkout takes 60 seconds. No setup calls, no contracts, no waiting." },
+    { num: "02", title: "We Scan Your Traffic", desc: "Our engine analyzes your sessions, fingerprints suspicious behavior, and cross-references known bot sources." },
+    { num: "03", title: "You Get the Report", desc: "A full PDF lands in your inbox — who, what, where, how, and exactly what it's costing you." },
+    { num: "04", title: "You Get the Fix", desc: "Block rules, ad platform settings, and step-by-step instructions to stop the bleed immediately." },
+  ];
 
-  statGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "24px", marginTop: "50px" },
-  statCard: { background: "#0c1220", border: "1px solid #162038", borderRadius: "10px", padding: "32px 20px", textAlign: "center" },
-  statNum: { fontSize: "36px", fontWeight: 700, color: "#5b9cf6", marginBottom: "8px" },
-  statLabel: { fontSize: "14px", color: "#8892a4" },
+  return (
+    <section id="how-it-works" style={{ padding: "100px 2rem", background: "rgba(255,255,255,0.01)", borderTop: "1px solid rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: "4rem" }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#00ff88", letterSpacing: "2px", marginBottom: "1rem" }}>HOW IT WORKS</div>
+          <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 900, color: "#fff", letterSpacing: "-1px", margin: 0 }}>
+            Pay. Scan. Fix. Done.
+          </h2>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "2rem" }}>
+          {steps.map(({ num, title, desc }) => (
+            <div key={num} style={{ position: "relative" }}>
+              <div style={{
+                fontFamily: "'Space Mono', monospace",
+                fontSize: "3.5rem",
+                fontWeight: 700,
+                color: "rgba(0,255,136,0.12)",
+                lineHeight: 1,
+                marginBottom: "1rem",
+              }}>{num}</div>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontSize: "1.1rem", fontWeight: 700, color: "#fff", marginBottom: "0.5rem" }}>{title}</div>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.7 }}>{desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
 
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "20px", marginTop: "20px" },
-  card: { background: "#0a1020", border: "1px solid #162038", borderLeft: "3px solid #1f6feb", borderRadius: "8px", padding: "28px", textAlign: "left" },
-  cardIcon: { fontSize: "20px", color: "#5b9cf6", marginBottom: "14px" },
-  cardTitle: { fontSize: "17px", fontWeight: 600, marginBottom: "10px", color: "#e8ecf2" },
-  cardDesc: { fontSize: "14px", color: "#7a8599", lineHeight: 1.7, margin: 0 },
+function Calculator() {
+  const [spend, setSpend] = useState(5000);
+  const wasteRate = 0.23;
+  const waste = Math.round(spend * wasteRate);
+  const monthly = waste * 30;
 
-  tierRow: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "28px", alignItems: "start" },
-  tierCard: { background: "#0c1220", border: "1px solid #162038", borderRadius: "10px", padding: "40px 36px", textAlign: "left" },
-  tierBadge: { display: "inline-block", padding: "4px 12px", fontSize: "11px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", background: "#162038", color: "#5b9cf6", borderRadius: "4px", marginBottom: "20px" },
-  tierTitle: { fontSize: "22px", fontWeight: 700, color: "#f0f4f8", marginBottom: "8px" },
-  tierPrice: { fontSize: "38px", fontWeight: 700, color: "#5b9cf6" },
-  tierFreq: { fontSize: "14px", color: "#6b7588", marginBottom: "24px" },
-  divider: { height: "1px", background: "#162038", margin: "24px 0" },
-  tierSub: { fontSize: "13px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "#6b7588", marginBottom: "14px", marginTop: "24px" },
-  tierList: { listStyle: "none", padding: 0, margin: 0 },
-  tierItem: { display: "flex", alignItems: "flex-start", gap: "10px", fontSize: "14px", color: "#a0a8b8", marginBottom: "12px", lineHeight: 1.6 },
-  chk: { color: "#1f6feb", fontWeight: 700, flexShrink: 0, marginTop: "2px" },
+  return (
+    <section style={{ padding: "100px 2rem" }}>
+      <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#00ff88", letterSpacing: "2px", marginBottom: "1rem" }}>SAVINGS CALCULATOR</div>
+        <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 900, color: "#fff", letterSpacing: "-1px", marginBottom: "0.75rem" }}>
+          How Much Are You Losing?
+        </h2>
+        <p style={{ fontFamily: "'DM Sans', sans-serif", color: "rgba(255,255,255,0.5)", marginBottom: "3rem", fontSize: 15 }}>
+          Enter your daily ad spend to estimate your bot traffic waste.
+        </p>
 
-  credRow: { display: "flex", flexDirection: "column", gap: "16px", marginTop: "40px", alignItems: "center" },
-  credItem: { display: "flex", alignItems: "center", gap: "12px", fontSize: "15px", color: "#a0a8b8" },
+        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "2.5rem" }}>
+          <div style={{ marginBottom: "2rem" }}>
+            <label style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "rgba(255,255,255,0.5)", display: "block", marginBottom: "1rem" }}>
+              DAILY AD SPEND: <span style={{ color: "#00ff88" }}>${spend.toLocaleString()}</span>
+            </label>
+            <input
+              type="range" min="100" max="50000" step="100" value={spend}
+              onChange={e => setSpend(Number(e.target.value))}
+              style={{ width: "100%", accentColor: "#00ff88", cursor: "pointer" }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "'Space Mono', monospace", fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: "0.5rem" }}>
+              <span>$100</span><span>$50,000</span>
+            </div>
+          </div>
 
-  faqItem: { borderBottom: "1px solid #162038", textAlign: "left" },
-  faqQ: { width: "100%", background: "none", border: "none", color: "#e0e4ea", fontSize: "16px", fontWeight: 600, padding: "20px 0", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", fontFamily: "inherit", lineHeight: 1.5 },
-  faqToggle: { fontSize: "22px", color: "#5b9cf6", flexShrink: 0, marginLeft: "16px", transition: "transform 0.2s" },
-  faqA: { fontSize: "15px", color: "#7a8599", lineHeight: 1.8, paddingBottom: "20px" },
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div style={{ background: "rgba(255,0,80,0.08)", border: "1px solid rgba(255,0,80,0.2)", borderRadius: 10, padding: "1.25rem" }}>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "rgba(255,100,100,0.8)", marginBottom: "0.5rem" }}>EST. DAILY WASTE</div>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontSize: "2rem", fontWeight: 900, color: "#ff4466" }}>${waste.toLocaleString()}</div>
+            </div>
+            <div style={{ background: "rgba(255,0,80,0.08)", border: "1px solid rgba(255,0,80,0.2)", borderRadius: 10, padding: "1.25rem" }}>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "rgba(255,100,100,0.8)", marginBottom: "0.5rem" }}>EST. MONTHLY WASTE</div>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontSize: "2rem", fontWeight: 900, color: "#ff4466" }}>${monthly.toLocaleString()}</div>
+            </div>
+          </div>
 
-  domainLink: { fontSize: "14px", color: "#5b9cf6", textDecoration: "none", fontWeight: 500 },
+          <div style={{ marginTop: "1.5rem", padding: "1rem", background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 10 }}>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "rgba(255,255,255,0.6)" }}>
+              A $99 Quick Scan pays for itself if we find just <span style={{ color: "#00ff88", fontWeight: 700 }}>${(99 / waste).toFixed(1)} days</span> of waste.
+            </div>
+          </div>
 
-  footer: { padding: "40px 24px", borderTop: "1px solid #162038" },
-  footerInner: { maxWidth: "1100px", margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", fontSize: "13px", color: "#5a6478" },
-  footerLink: { color: "#5a6478", textDecoration: "none" },
-};
+          <a href={STRIPE.quickScan} target="_blank" rel="noopener noreferrer"
+            style={{
+              display: "block", marginTop: "1.5rem",
+              background: "#00ff88", color: "#000",
+              padding: "14px", borderRadius: 8,
+              fontSize: 14, fontWeight: 800, textDecoration: "none",
+              fontFamily: "'Space Mono', monospace",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "#00ffaa"; e.currentTarget.style.boxShadow = "0 8px 30px rgba(0,255,136,0.25)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "#00ff88"; e.currentTarget.style.boxShadow = "none"; }}
+          >
+            Stop the Bleed — Run a Quick Scan →
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
 
+function Pricing() {
+  const plans = [
+    {
+      name: "Quick Scan",
+      price: "$99",
+      period: "one-time",
+      tag: null,
+      desc: "Right now. One report. Find out if you have a problem and exactly what it's costing you.",
+      features: [
+        "Instant automated scan",
+        "Bot traffic detection report",
+        "Estimated daily & monthly waste",
+        "PDF delivered to your inbox",
+        "Results in minutes",
+      ],
+      cta: "Run My Scan",
+      href: STRIPE.quickScan,
+      highlight: false,
+    },
+    {
+      name: "Revenue Audit",
+      price: "$297",
+      period: "one-time",
+      tag: "Most Popular",
+      desc: "30 days of monitoring. Full picture. Every detail on where they come from, what they cost you, and exactly how to stop them.",
+      features: [
+        "Everything in Quick Scan",
+        "30-day monitoring period",
+        "Bot origin & fingerprint analysis",
+        "Ad spend, hosting & ops cost breakdown",
+        "Step-by-step remediation guide",
+        "Block rules & ad platform settings",
+        "Full PDF audit report",
+      ],
+      cta: "Get My Audit",
+      href: STRIPE.revenueAudit,
+      highlight: true,
+    },
+    {
+      name: "Revenue Shield",
+      price: "$497",
+      period: "/month",
+      tag: "3rd Month Free",
+      desc: "Your always-on revenue bodyguard. Never think about bots again.",
+      features: [
+        "Everything in Revenue Audit",
+        "Continuous 24/7 monitoring",
+        "Monthly reports, auto-delivered",
+        "Unlimited on-demand scans",
+        "Real-time threat alerts",
+        "Updated block rules as bots evolve",
+        "3rd month completely free",
+      ],
+      cta: "Protect My Revenue",
+      href: STRIPE.revenueShield,
+      highlight: false,
+    },
+  ];
 
+  return (
+    <section id="pricing" style={{ padding: "100px 2rem" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: "4rem" }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#00ff88", letterSpacing: "2px", marginBottom: "1rem" }}>PRICING</div>
+          <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 900, color: "#fff", letterSpacing: "-1px", margin: 0 }}>
+            Stop the Bleed Today
+          </h2>
+          <p style={{ fontFamily: "'DM Sans', sans-serif", color: "rgba(255,255,255,0.4)", marginTop: "1rem", fontSize: 15 }}>
+            No contracts. No setup fees. Cancel anytime.
+          </p>
+        </div>
 
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.5rem", alignItems: "start" }}>
+          {plans.map(({ name, price, period, tag, desc, features, cta, href, highlight }) => (
+            <div key={name} style={{
+              background: highlight ? "rgba(0,255,136,0.05)" : "rgba(255,255,255,0.03)",
+              border: highlight ? "1px solid rgba(0,255,136,0.3)" : "1px solid rgba(255,255,255,0.07)",
+              borderRadius: 16,
+              padding: "2rem",
+              position: "relative",
+              transform: highlight ? "scale(1.02)" : "scale(1)",
+              transition: "all 0.2s",
+            }}>
+              {tag && (
+                <div style={{
+                  position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)",
+                  background: highlight ? "#00ff88" : "rgba(255,200,0,0.9)",
+                  color: "#000", padding: "4px 16px", borderRadius: 100,
+                  fontFamily: "'Space Mono', monospace", fontSize: 11, fontWeight: 700,
+                  whiteSpace: "nowrap",
+                }}>{tag}</div>
+              )}
 
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: "0.5rem", letterSpacing: "1px" }}>
+                {name.toUpperCase()}
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: "0.75rem" }}>
+                <span style={{ fontFamily: "'Syne', sans-serif", fontSize: "2.8rem", fontWeight: 900, color: "#fff", lineHeight: 1 }}>{price}</span>
+                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "rgba(255,255,255,0.4)" }}>{period}</span>
+              </div>
+              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.7, marginBottom: "1.5rem", minHeight: 60 }}>
+                {desc}
+              </p>
+
+              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 2rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                {features.map(f => (
+                  <li key={f} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <span style={{ color: "#00ff88", flexShrink: 0, marginTop: 2 }}>✓</span>
+                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "rgba(255,255,255,0.6)" }}>{f}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <a href={href} target="_blank" rel="noopener noreferrer"
+                style={{
+                  display: "block", textAlign: "center",
+                  background: highlight ? "#00ff88" : "rgba(255,255,255,0.08)",
+                  color: highlight ? "#000" : "#fff",
+                  padding: "14px", borderRadius: 8,
+                  fontSize: 14, fontWeight: 700, textDecoration: "none",
+                  fontFamily: "'Space Mono', monospace",
+                  border: highlight ? "none" : "1px solid rgba(255,255,255,0.12)",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = highlight ? "0 8px 30px rgba(0,255,136,0.25)" : "0 8px 20px rgba(0,0,0,0.3)";
+                  if (!highlight) e.currentTarget.style.background = "rgba(255,255,255,0.12)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "none";
+                  if (!highlight) e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                }}
+              >
+                {cta} →
+              </a>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FAQ() {
+  const [open, setOpen] = useState(null);
+  const items = [
+    { q: "How fast do I get my Quick Scan report?", a: "The scan runs automatically after purchase. Your PDF report is delivered to your email within minutes — no waiting, no manual process." },
+    { q: "What do I need to provide?", a: "Just your website URL and email address at checkout. No code installs, no API keys, no technical setup required." },
+    { q: "What if I don't have paid ads running?", a: "Bots still cost you. Fake signups, server load, analytics pollution, and CRM spam affect every site. The scan detects all of it." },
+    { q: "Is the Revenue Audit a subscription?", a: "No. The $297 Revenue Audit is a one-time payment for a 30-day monitoring period plus a full remediation report. No recurring charges." },
+    { q: "Can I cancel Revenue Shield anytime?", a: "Yes. Cancel anytime with no fees or penalties. Your 3rd month free is applied automatically at the end of your 2nd billing cycle." },
+    { q: "What if I don't find any bot traffic?", a: "That's a win — you now have proof your traffic is clean. And you have the baseline data to detect if that changes in the future." },
+  ];
+
+  return (
+    <section id="faq" style={{ padding: "100px 2rem", background: "rgba(255,255,255,0.01)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+      <div style={{ maxWidth: 700, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: "4rem" }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#00ff88", letterSpacing: "2px", marginBottom: "1rem" }}>FAQ</div>
+          <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 900, color: "#fff", letterSpacing: "-1px", margin: 0 }}>
+            Common Questions
+          </h2>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          {items.map(({ q, a }, i) => (
+            <div key={i} style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              borderRadius: 10,
+              overflow: "hidden",
+              transition: "border-color 0.2s",
+            }}>
+              <button onClick={() => setOpen(open === i ? null : i)}
+                style={{
+                  width: "100%", textAlign: "left", padding: "1.25rem 1.5rem",
+                  background: "none", border: "none", cursor: "pointer",
+                  display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem",
+                }}>
+                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 600, color: "#fff" }}>{q}</span>
+                <span style={{ color: "#00ff88", fontSize: 20, flexShrink: 0, transition: "transform 0.2s", transform: open === i ? "rotate(45deg)" : "rotate(0)" }}>+</span>
+              </button>
+              {open === i && (
+                <div style={{ padding: "0 1.5rem 1.25rem", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "rgba(255,255,255,0.55)", lineHeight: 1.7 }}>
+                  {a}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CTA() {
+  return (
+    <section style={{ padding: "100px 2rem", textAlign: "center", position: "relative", overflow: "hidden" }}>
+      <div style={{
+        position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
+        width: 800, height: 400,
+        background: "radial-gradient(ellipse, rgba(0,255,136,0.06) 0%, transparent 70%)",
+      }} />
+      <div style={{ position: "relative", maxWidth: 600, margin: "0 auto" }}>
+        <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(2rem, 5vw, 3.5rem)", fontWeight: 900, color: "#fff", letterSpacing: "-1.5px", marginBottom: "1rem" }}>
+          Bots Don't Take<br />Days Off.
+        </h2>
+        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 16, color: "rgba(255,255,255,0.5)", marginBottom: "2.5rem", lineHeight: 1.7 }}>
+          Every day you wait is another day of wasted spend, inflated costs, and bad data. A $99 scan takes minutes and pays for itself fast.
+        </p>
+        <a href={STRIPE.quickScan} target="_blank" rel="noopener noreferrer"
+          style={{
+            display: "inline-block",
+            background: "#00ff88", color: "#000",
+            padding: "18px 40px", borderRadius: 8,
+            fontSize: 15, fontWeight: 800, textDecoration: "none",
+            fontFamily: "'Space Mono', monospace",
+            transition: "all 0.2s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "#00ffaa"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 40px rgba(0,255,136,0.3)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "#00ff88"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+        >
+          Run a $99 Quick Scan Now →
+        </a>
+      </div>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer style={{
+      borderTop: "1px solid rgba(255,255,255,0.06)",
+      padding: "2rem",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: "1rem",
+      maxWidth: 1100,
+      margin: "0 auto",
+    }}>
+      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, color: "rgba(255,255,255,0.3)" }}>
+        © 2025 BotGuard<span style={{ color: "#00ff88" }}>Pro</span>
+      </div>
+      <div style={{ display: "flex", gap: "1.5rem" }}>
+        {[["Quick Scan", STRIPE.quickScan], ["Revenue Audit", STRIPE.revenueAudit], ["Revenue Shield", STRIPE.revenueShield]].map(([label, href]) => (
+          <a key={label} href={href} target="_blank" rel="noopener noreferrer"
+            style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "rgba(255,255,255,0.4)", textDecoration: "none", transition: "color 0.2s" }}
+            onMouseEnter={e => e.target.style.color = "#00ff88"}
+            onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.4)"}
+          >{label}</a>
+        ))}
+      </div>
+      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "rgba(255,255,255,0.2)" }}>
+        info@botguardpro.com
+      </div>
+    </footer>
+  );
+}
+
+export default function App() {
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;900&family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body { background: #05070a; color: #fff; -webkit-font-smoothing: antialiased; }
+        input[type=range] { -webkit-appearance: none; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; outline: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #00ff88; cursor: pointer; box-shadow: 0 0 10px rgba(0,255,136,0.4); }
+        @media (max-width: 768px) { .desktop-nav { display: none !important; } }
+      `}</style>
+      <Nav />
+      <Hero />
+      <Problem />
+      <HowItWorks />
+      <Calculator />
+      <Pricing />
+      <FAQ />
+      <CTA />
+      <Footer />
+    </>
+  );
+}
